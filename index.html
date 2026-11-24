@@ -98,7 +98,7 @@ function buildZone(){platforms=[];hazards=[];coins=[];const offset=cp*105;let pa
 }
 function show(id){$(id).style.display='flex'}function hide(id){$(id).style.display='none'}
 function updateHud(){$('score').textContent=score;$('lives').textContent=lives;$('cp').textContent=cp+1;$('progress').style.width=(cp/15*100)+'%';$('zone').textContent=zones[cp][1]+' '+zones[cp][0]}
-function startGame(){clearInput();jumpBuffer=0;coyote=0;score=0;lives=5;cp=0;correct=0;startAt=Date.now();clock=0;buildZone();updateHud();hide('menu');hide('howScreen');hide('gameOver');hide('victory');$('hud').style.display='flex';$('progressBox').style.display='block';$('zone').style.display='block';$('controls').style.display='flex';$('hint').style.display='block';mode='play'}
+function startGame(){clearInput();jumpBuffer=0;coyote=0;score=0;lives=5;cp=0;correct=0;startAt=Date.now();clock=0;buildZone();p.vx=0;p.vz=0;p.vy=0;p.ground=true;updateHud();hide('menu');hide('howScreen');hide('gameOver');hide('victory');$('hud').style.display='flex';$('progressBox').style.display='block';$('zone').style.display='block';$('controls').style.display='flex';$('hint').style.display='block';mode='play';clearInput();}
 function toast(t){$('toast').textContent=t;$('toast').style.display='block';setTimeout(()=>$('toast').style.display='none',1100)}
 function question(){mode='question';let q=questionBank[cp];$('qtop').textContent=`CHECKPOINT ${cp+1} / 15`; $('difficulty').textContent=cp<5?'★ EASY':cp<10?'★★ INTERMEDIATE':'★★★ HARD';$('qtext').textContent=q.question;$('answers').innerHTML='';$('feedback').style.display='none';let arr=q.answers.map((a,i)=>({a,ok:i===q.correctAnswer}));for(let i=arr.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]]}arr.forEach((o,i)=>{let b=document.createElement('button');b.className='answer';b.textContent=String.fromCharCode(65+i)+'. '+o.a;b.onclick=()=>answer(o,b);$('answers').appendChild(b)}) ;show('questionOverlay')}
 let canContinue=false,wasRight=false;
@@ -119,7 +119,7 @@ function platformX(b){return b.baseX+(b.kind==='moving'?Math.sin(clock*1.6+b.pha
 function hasFloor(x,z){let found=null;for(const b of platforms){if(Math.abs(x-platformX(b))<b.w/2-.12&&z>b.z-b.d/2&&z<b.z+b.d/2){found=b;break}}return found}
 function hazardUpdate(){for(let h of hazards){if(h.baseX===undefined)h.baseX=h.x;if(h.baseZ===undefined)h.baseZ=h.z;h.x=h.baseX+(h.type===0?Math.sin(clock*2+h.phase)*1.0:h.type===2?Math.sin(clock*3+h.phase)*1.4:0);h.z=h.baseZ+(h.type===1?Math.sin(clock*2+h.phase)*.7:0)}}
 let jumpBuffer=0,coyote=0;
-function physics(dt){let ix=axis('x'),iz=axis('z');let accel=40;
+function physics(dt){if(mode!=='play')return;let ix=axis('x'),iz=axis('z');let accel=40;
  p.vx+=(ix*accel-p.vx*5.2)*dt;p.vz+=(iz*accel-p.vz*5.2)*dt;p.x+=p.vx*dt;p.z+=p.vz*dt;p.x=clamp(p.x,-7,7);
  if(jumpTap)jumpBuffer=.16;jumpTap=false;if(jumpBuffer>0)jumpBuffer-=dt;if(p.ground)coyote=.14;else coyote=Math.max(0,coyote-dt);
  if(jumpBuffer>0&&coyote>0){p.vy=12.5;p.ground=false;coyote=0;jumpBuffer=0}
@@ -189,5 +189,6 @@ function drawAvatar(){let base=project(p.x,p.y,p.z);let s=base.s;ctx.save();ctx.
  ctx.restore()}
 function draw(dt){clock+=dt;if(mode==='play'){hazardUpdate();physics(dt)}drawScene();if(mode==='play'){// small coin / objective indicator
  ctx.fillStyle='#ffffffd9';ctx.font='bold 12px system-ui';ctx.textAlign='right';ctx.fillText('DNA coins: '+coins.filter(c=>c.taken).length+'/'+coins.length,W-16,H-18)}}
+buildZone();
 function loop(t){let dt=Math.min(.033,(t-last)/1000||0);last=t;draw(dt);requestAnimationFrame(loop)}requestAnimationFrame(loop);
 </script></body></html>
