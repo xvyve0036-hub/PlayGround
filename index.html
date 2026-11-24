@@ -98,7 +98,7 @@ function buildZone(){platforms=[];hazards=[];coins=[];const offset=cp*105;let pa
 }
 function show(id){$(id).style.display='flex'}function hide(id){$(id).style.display='none'}
 function updateHud(){$('score').textContent=score;$('lives').textContent=lives;$('cp').textContent=cp+1;$('progress').style.width=(cp/15*100)+'%';$('zone').textContent=zones[cp][1]+' '+zones[cp][0]}
-function startGame(){score=0;lives=5;cp=0;correct=0;startAt=Date.now();clock=0;buildZone();updateHud();hide('menu');hide('howScreen');hide('gameOver');hide('victory');$('hud').style.display='flex';$('progressBox').style.display='block';$('zone').style.display='block';$('controls').style.display='flex';$('hint').style.display='block';mode='play'}
+function startGame(){clearInput();jumpBuffer=0;coyote=0;score=0;lives=5;cp=0;correct=0;startAt=Date.now();clock=0;buildZone();updateHud();hide('menu');hide('howScreen');hide('gameOver');hide('victory');$('hud').style.display='flex';$('progressBox').style.display='block';$('zone').style.display='block';$('controls').style.display='flex';$('hint').style.display='block';mode='play'}
 function toast(t){$('toast').textContent=t;$('toast').style.display='block';setTimeout(()=>$('toast').style.display='none',1100)}
 function question(){mode='question';let q=questionBank[cp];$('qtop').textContent=`CHECKPOINT ${cp+1} / 15`; $('difficulty').textContent=cp<5?'★ EASY':cp<10?'★★ INTERMEDIATE':'★★★ HARD';$('qtext').textContent=q.question;$('answers').innerHTML='';$('feedback').style.display='none';let arr=q.answers.map((a,i)=>({a,ok:i===q.correctAnswer}));for(let i=arr.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]]}arr.forEach((o,i)=>{let b=document.createElement('button');b.className='answer';b.textContent=String.fromCharCode(65+i)+'. '+o.a;b.onclick=()=>answer(o,b);$('answers').appendChild(b)}) ;show('questionOverlay')}
 let canContinue=false,wasRight=false;
@@ -108,20 +108,25 @@ function win(){mode='victory';elapsed=Math.floor((Date.now()-startAt)/1000);$('f
 function menu(){clearInterval(feedbackInterval);['questionOverlay','pauseScreen','gameOver','victory','howScreen'].forEach(hide);['hud','progressBox','zone','controls','hint'].forEach(id=>$(id).style.display='none');mode='menu';show('menu')}
 $('start').onclick=startGame;$('retry').onclick=startGame;$('playAgain').onclick=startGame;$('how').onclick=()=>{hide('menu');show('howScreen')};$('backHow').onclick=()=>{hide('howScreen');show('menu')};$('overMenu').onclick=menu;$('victoryMenu').onclick=menu;
 $('pause').onclick=()=>{if(mode==='play'){mode='pause';show('pauseScreen')}};$('resume').onclick=()=>{hide('pauseScreen');mode='play'};$('pauseMenu').onclick=menu;
-function key(e,v){let k=e.key.toLowerCase();if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)){e.preventDefault();keys[k]=v;if(v&&k===' ')jumpTap=true}if(v&&k==='escape'){if(mode==='play'){$('pause').click()}else if(mode==='pause')$('resume').click()}}
+function key(e,v){let k=e.key.toLowerCase();if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)){e.preventDefault();keys[k]=v;if(v&&k===' '&&!e.repeat)jumpTap=true}if(v&&k==='escape'){if(mode==='play'){$('pause').click()}else if(mode==='pause')$('resume').click()}}
 addEventListener('keydown',e=>key(e,true));addEventListener('keyup',e=>key(e,false));
+function clearInput(){keys={};touch={x:0,z:0};jumpTap=false}
+addEventListener('blur',clearInput);addEventListener('visibilitychange',()=>{if(document.hidden)clearInput()});
 function hold(id,axis,val){let el=$(id);el.addEventListener('pointerdown',e=>{e.preventDefault();touch[axis]=val;el.setPointerCapture(e.pointerId)});['pointerup','pointercancel','lostpointercapture'].forEach(ev=>el.addEventListener(ev,e=>{touch[axis]=0}))}
 hold('fwd','z',1);hold('back','z',-1);hold('left','x',-1);hold('right','x',1);$('jump').addEventListener('pointerdown',e=>{e.preventDefault();jumpTap=true});
-function axis(a){if(a==='x')return (keys.a||keys.arrowleft?-1:0)+(keys.d||keys.arrowright?1:0)+touch.x;return (keys.w||keys.arrowup?1:0)+(keys.s||keys.arrowdown?-1:0)+touch.z}
+function axis(a){if(a==='x')return clamp((keys.a||keys.arrowleft?-1:0)+(keys.d||keys.arrowright?1:0)+touch.x,-1,1);return clamp((keys.w||keys.arrowup?1:0)+(keys.s||keys.arrowdown?-1:0)+touch.z,-1,1)}
 function platformX(b){return b.baseX+(b.kind==='moving'?Math.sin(clock*1.6+b.phase)*1.1:0)}
 function hasFloor(x,z){let found=null;for(const b of platforms){if(Math.abs(x-platformX(b))<b.w/2-.12&&z>b.z-b.d/2&&z<b.z+b.d/2){found=b;break}}return found}
 function hazardUpdate(){for(let h of hazards){if(h.baseX===undefined)h.baseX=h.x;if(h.baseZ===undefined)h.baseZ=h.z;h.x=h.baseX+(h.type===0?Math.sin(clock*2+h.phase)*1.0:h.type===2?Math.sin(clock*3+h.phase)*1.4:0);h.z=h.baseZ+(h.type===1?Math.sin(clock*2+h.phase)*.7:0)}}
-function physics(dt){let ix=clamp(axis('x'),-1,1),iz=clamp(axis('z'),-1,1);let accel=22,speed=8.2;
- p.vx+=(ix*accel-p.vx*4.5)*dt;p.vz+=(iz*accel-p.vz*4.2)*dt;p.x+=p.vx*dt;p.z+=p.vz*dt;p.x=clamp(p.x,-7,7);
- if(jumpTap&&p.ground){p.vy=10.2;p.ground=false}jumpTap=false;p.vy-=25*dt;p.y+=p.vy*dt;
- let floor=hasFloor(p.x,p.z);if(floor&&p.y<=floor.y+.03&&p.vy<=0){p.y=floor.y;p.vy=0;p.ground=true}else p.ground=false;
- if(!floor&&p.y< -3){lives--;updateHud();if(lives<=0){gameOver();return}toast('Oops! Back to the last platform');p.x=platforms[0].x;p.z=Math.max(platforms[0].z,Math.min(p.z,platforms[0].z+2));p.y=0;p.vy=0}
- for(let h of hazards){let hx=h.x, hz=h.z;if(Math.hypot(p.x-hx,p.z-hz)<h.r+.48&&p.y<1.25){lives--;updateHud();toast('Hazard hit! −1 life');p.x=platforms[0].x;p.z=platforms[0].z+2;p.y=0;p.vy=0;if(lives<=0)gameOver();break}}
+let jumpBuffer=0,coyote=0;
+function physics(dt){let ix=axis('x'),iz=axis('z');let accel=40;
+ p.vx+=(ix*accel-p.vx*5.2)*dt;p.vz+=(iz*accel-p.vz*5.2)*dt;p.x+=p.vx*dt;p.z+=p.vz*dt;p.x=clamp(p.x,-7,7);
+ if(jumpTap)jumpBuffer=.16;jumpTap=false;if(jumpBuffer>0)jumpBuffer-=dt;if(p.ground)coyote=.14;else coyote=Math.max(0,coyote-dt);
+ if(jumpBuffer>0&&coyote>0){p.vy=12.5;p.ground=false;coyote=0;jumpBuffer=0}
+ p.vy-=25*dt;p.y+=p.vy*dt;
+ let floor=hasFloor(p.x,p.z);if(floor&&p.y<=floor.y+.035&&p.vy<=0){p.y=floor.y;p.vy=0;p.ground=true}else p.ground=false;
+ if(!floor&&p.y< -3){lives--;updateHud();if(lives<=0){gameOver();return}toast('Oops! Back to the last platform');p.x=platforms[0].x;p.z=Math.max(platforms[0].z,Math.min(p.z,platforms[0].z+2));p.y=0;p.vx=0;p.vz=0;p.vy=0;p.ground=true;coyote=0;jumpBuffer=0}
+ for(let h of hazards){let hx=h.x, hz=h.z;if(Math.hypot(p.x-hx,p.z-hz)<h.r+.48&&p.y<1.25){lives--;updateHud();toast('Hazard hit! −1 life');p.x=platforms[0].x;p.z=platforms[0].z+2;p.y=0;p.vx=0;p.vz=0;p.vy=0;p.ground=true;coyote=0;jumpBuffer=0;if(lives<=0)gameOver();break}}
  for(let c of coins){if(!c.taken&&Math.hypot(p.x-c.x,p.z-c.z)<1.1&&Math.abs(p.y-c.y)<2){c.taken=true;score+=2;updateHud();for(let i=0;i<8;i++)particles.push({x:c.x,y:c.y,z:c.z,life:1})}}
  if(p.z>=gateZ-4&&Math.abs(p.x-platforms[platforms.length-1].x)<4&&p.y<1.5)question();
 }
